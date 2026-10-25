@@ -1,0 +1,27 @@
+{
+  "dataset_mode": "raw_extracted",
+  "n_epochs": 500,
+  "n_recordings": 500,
+  "n_features": 47,
+  "classes": {
+    "0": "Normal EEG",
+    "1": "Seizure-free",
+    "2": "Active seizure"
+  },
+  "train_epochs": 400,
+  "test_epochs": 100,
+  "train_recordings": 400,
+  "test_recordings": 100,
+  "group_overlap": 0,
+  "selected_model": "Gradient Boosting",
+  "selection_metric": "grouped-CV macro F1; tie-breakers active-seizure sensitivity and test macro F1",
+  "best_model_path": "/Users/radhikapoonia/Downloads/bonn/bonn_outputs/bonn_eeg_best_ml_pipeline.joblib",
+  "output_directory": "/Users/radhikapoonia/Downloads/bonn/bonn_outputs",
+  "limitations": [
+    "No verified patient identifiers in supplied feature files; recording-wise split is not proof of patient-wise generalization.",
+    "Precomputed-feature mode cannot reconstruct or validate upstream raw EEG filtering and normalization.",
+    "Bonn dataset results do not establish clinical validity or continuous seizure-event detection performance.",
+    "Probabilities are not guaranteed to be calibrated.",
+    "Event-level sensitivity, false alarms per hour, and detection delay require timestamped seizure annotations and continuous recordings."
+  ]
+}
