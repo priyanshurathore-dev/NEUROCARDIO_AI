@@ -26,3 +26,11 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# ECG project generated files
+backend/models/ecg/.venv/
+backend/models/ecg/data/
+backend/models/ecg/results/
+backend/models/ecg/__pycache__/
+backend/models/ecg/.pytest_cache/
+backend/models/ecg 1/
