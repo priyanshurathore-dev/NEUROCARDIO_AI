@@ -1,0 +1,4 @@
+backend/models/ecg/data/**/*.npy filter=lfs diff=lfs merge=lfs -text
+backend/models/ecg/data/**/*.csv filter=lfs diff=lfs merge=lfs -text
+backend/models/ecg/results/**/*.joblib filter=lfs diff=lfs merge=lfs -text
+backend/models/ecg/results/**/*.npy filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,8 @@
+Run these from the project root after installing requirements:
+1. python -m src.prepare_data --out data/processed --records 100 101 102 103 104 105
+2. python -m src.train_traditional --data data/processed --out results/traditional
+3. python -m src.train_deep --data data/processed --out results/deep --epochs 30
+4. python -m src.train_fusion --data data/processed --out results/fusion
+5. pytest -q
+
+For the full dataset, omit --records or pass the complete record list documented in README.md.
