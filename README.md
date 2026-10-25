@@ -1,41 +1,31 @@
-# NeuroCardio AI (frontend)
+# NeuroCardio AI
 
-Research prototype for reviewing EEG and ECG recordings. This interface helps
-clinicians organize files and helps patients learn what these signals are. It
-does **not** provide a confirmed diagnosis and has no claimed clinical accuracy.
+An academic project exploring AI-assisted EEG and ECG signal analysis.
 
-## Run locally
+## Project Structure
 
-```bash
-npm install
-npm run dev
-```
+- `frontend/` - React web application for signal upload and visualization.
+- `backend/` - Planned API and machine learning model integration.
+- `dataset-details/` - Dataset sources and documentation.
 
-Then open the URL printed by Vite (usually `http://localhost:5173`).
+## Frontend Setup
 
-Optional environment file (see `.env.example`):
+Requirements: Node.js and npm.
 
-```
-VITE_API_BASE_URL=/api
-```
+Run locally:
 
-## Current scope
+    cd frontend
+    npm install
+    npm run dev
 
-- Dashboard, EEG analysis, ECG analysis, and About pages
-- File type and size checks in the browser
-- Waveform preview for simple CSV/TXT files
-- Labeled demonstration waveforms when a clinical format cannot be parsed
-- Analysis requests to FastAPI (`POST /api/eeg/analyze` and `POST /api/ecg/analyze`)
+## Current Status
 
-The FastAPI backend and trained models are not included yet. If analysis is not
-connected, the results panel reports that honestly and does not invent findings.
+- EEG and ECG pages
+- CSV upload and signal visualization
+- Sample EEG data for demonstration
+- Backend and real ML model integration planned
 
-## Later backend connection
+## Disclaimer
 
-Vite proxies `/api` to `http://localhost:8000`. When FastAPI is running, upload
-analysis should reach:
+This is an academic prototype, not a medical diagnostic tool. Do not use it to make clinical decisions.
 
-- `POST /eeg/analyze`
-- `POST /ecg/analyze`
-
-both as `multipart/form-data` with a `file` field.
