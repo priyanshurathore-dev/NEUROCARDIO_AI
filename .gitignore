@@ -42,3 +42,6 @@ backend/data/bonn_raw/
 
 # Temporary backend backup
 backend/main.py.backup
+/backend/models/ecg/results/deep/
+/backend/models/ecg/src/train_deep.py
+/backend/models/ecg/src/train_fusion.py
