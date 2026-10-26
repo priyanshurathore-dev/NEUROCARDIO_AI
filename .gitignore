@@ -34,3 +34,11 @@ backend/models/ecg/results/
 backend/models/ecg/__pycache__/
 backend/models/ecg/.pytest_cache/
 backend/models/ecg 1/
+
+# EEG project local data and environments
+backend/.venv-eeg/
+backend/.venv-eeg313/
+backend/data/bonn_raw/
+
+# Temporary backend backup
+backend/main.py.backup
