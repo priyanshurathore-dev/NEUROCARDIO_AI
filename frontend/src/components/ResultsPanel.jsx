@@ -2,15 +2,13 @@ import { AlertCircle, CheckCircle2, Info, LoaderCircle } from 'lucide-react'
 import { formatFileSize } from '../utils/signalFile'
 
 function FileFacts({ file }) {
-  if (!file) {
-    return null
-  }
+  if (!file) return null
 
   return (
     <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
       <div>
         <dt className="text-slate-500">File</dt>
-        <dd className="font-medium text-slate-800">{file.name}</dd>
+        <dd className="font-medium text-slate-800 break-all">{file.name}</dd>
       </div>
       <div>
         <dt className="text-slate-500">Size</dt>
@@ -26,81 +24,98 @@ function FileFacts({ file }) {
 
 function ResultsPanel({ result }) {
   const status = result?.status || 'idle'
+  const data = result?.data
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-semibold text-slate-900">Analysis results</h2>
 
-      {status === 'idle' ? (
-        <p className="mt-3 flex items-start gap-2 text-sm text-slate-600">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
-          Upload a recording and choose Analyze to request results. No prediction
-          is shown until a real analysis service responds.
+      {status === 'idle' && (
+        <p className="mt-3 flex gap-2 text-sm text-slate-600">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          Upload an EEG recording and choose Analyze to request a model prediction.
         </p>
-      ) : null}
+      )}
 
-      {status === 'loading' ? (
+      {status === 'loading' && (
         <p className="mt-3 flex items-center gap-2 text-sm text-slate-700">
           <LoaderCircle className="h-4 w-4 animate-spin text-clinical-700" aria-hidden="true" />
-          Sending the recording for analysis…
+          Processing EEG recording…
         </p>
-      ) : null}
+      )}
 
-      {status === 'unavailable' ? (
-        <div className="mt-3">
-          <p className="flex items-start gap-2 text-sm text-slate-800">
+      {(status === 'unavailable' || status === 'error') && (
+        <div className="mt-3" role={status === 'error' ? 'alert' : undefined}>
+          <p className="flex gap-2 text-sm text-slate-800">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
             {result.message}
           </p>
           <FileFacts file={result.file} />
-          <p className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-            Trained EEG and ECG models will be connected through FastAPI later.
-            Until then, this panel reports file details only and does not invent
-            clinical findings.
-          </p>
         </div>
-      ) : null}
+      )}
 
-      {status === 'error' ? (
-        <div className="mt-3" role="alert">
-          <p className="flex items-start gap-2 text-sm text-red-800">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            {result.message}
-          </p>
-          <FileFacts file={result.file} />
-        </div>
-      ) : null}
+      {status === 'success' && (
+        <div className="mt-4">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm text-slate-500">Predicted EEG class</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900">
+              {data?.predicted_label || data?.message || 'Response received'}
+            </p>
+            {data?.predicted_class !== undefined && (
+              <p className="mt-1 text-sm text-slate-600">
+                Class ID: {data.predicted_class}
+              </p>
+            )}
+            {data?.model_name && (
+              <p className="mt-1 text-sm text-slate-600">
+                Model: {data.model_name}
+              </p>
+            )}
+            {data?.features_extracted !== undefined && (
+              <p className="mt-1 text-sm text-slate-600">
+                Features extracted: {data.features_extracted}
+              </p>
+            )}
+            {data?.sampling_frequency_hz && (
+              <p className="mt-1 text-sm text-slate-600">
+                Assumed sampling frequency: {data.sampling_frequency_hz} Hz
+              </p>
+            )}
+          </div>
 
-      {status === 'success' ? (
-        <div className="mt-3">
-          <p className="flex items-start gap-2 text-sm text-slate-800">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-clinical-700" aria-hidden="true" />
-            {result.data?.message || 'The analysis service returned a response.'}
-          </p>
+          {data?.class_scores && (
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Model class scores (not calibrated probabilities)
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {Object.entries(data.class_scores).map(([id, score]) => (
+                  <li key={id} className="text-sm text-slate-700">
+                    <div className="mb-1 flex justify-between gap-3">
+                      <span>
+                        {({ 0: 'Normal EEG', 1: 'Seizure-free', 2: 'Active seizure' })[id] || `Class ${id}`}
+                      </span>
+                      <span>{(Number(score) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded bg-slate-100">
+                      <div
+                        className="h-full rounded bg-clinical-700"
+                        style={{ width: `${Math.max(0, Math.min(100, Number(score) * 100))}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <FileFacts file={result.file} />
-          {result.data?.status ? (
-            <p className="mt-3 text-sm text-slate-700">
-              Status: <span className="font-medium">{result.data.status}</span>
-            </p>
-          ) : null}
-          {Array.isArray(result.data?.notes) && result.data.notes.length > 0 ? (
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {result.data.notes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          ) : null}
-          {Array.isArray(result.data?.series) ? (
-            <p className="mt-3 text-sm text-slate-600">
-              Returned series length: {result.data.series.length} samples.
-            </p>
-          ) : null}
-          <p className="mt-4 text-xs text-slate-500">
-            Any returned values still require review by a qualified healthcare
-            professional. This application does not confirm a diagnosis.
+          <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            {data?.clinical_notice ||
+              'Research demonstration only. This prediction is not a medical diagnosis and is not a substitute for professional assessment.'}
           </p>
         </div>
-      ) : null}
+      )}
     </section>
   )
 }
