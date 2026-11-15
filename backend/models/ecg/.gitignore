@@ -1,11 +1,15 @@
 
-.venv/
-**/.venv/
-__pycache__/
-.pytest_cache/
-*.pyc
+# ECG deep-learning files
+backend/models/ecg/results/deep/
+backend/models/ecg/src/train_deep.py
+backend/models/ecg/src/train_fusion.py
 
-# Exclude unused deep learning implementation
-results/deep/
-src/train_deep.py
-src/train_fusion.py
+# Ignore duplicate project folder
+backend/models/ecg 1/
+
+# Python environments and caches
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+*.pyc
