@@ -4,3 +4,8 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Exclude unused deep learning implementation
+results/deep/
+src/train_deep.py
+src/train_fusion.py
