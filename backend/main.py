@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import sys
 import joblib
 import numpy as np
 import pandas as pd
@@ -9,6 +10,14 @@ from pydantic import BaseModel, Field
 from backend.models.eeg.raw_features import extract_raw_eeg_features
 
 BASE_DIR = Path(__file__).resolve().parent
+ECG_DIR = BASE_DIR / "models" / "ecg"
+ECG_MODEL_PATH = ECG_DIR / "results" / "traditional" / "svm.joblib"
+
+if str(ECG_DIR) not in sys.path:
+    sys.path.insert(0, str(ECG_DIR))
+
+from src.features import extract_features
+from src.prepare_data import wavelet_denoise
 EEG_MODEL_PATH = BASE_DIR / "models" / "eeg" / "bonn_eeg_retrained_pipeline.joblib"
 
 app = FastAPI(
@@ -38,6 +47,14 @@ try:
 except Exception as exc:
     eeg_load_error = str(exc)
 
+ecg_model = None
+ecg_load_error = None
+
+try:
+    ecg_model = joblib.load(ECG_MODEL_PATH)
+except Exception as exc:
+    ecg_load_error = str(exc)
+
 
 class EEGFeatureInput(BaseModel):
     features: dict[str, float] = Field(
@@ -57,7 +74,7 @@ def health_check():
         "status": "healthy",
         "service": "NeuroCardio AI API",
         "eeg_model": "loaded" if eeg_bundle is not None else "not_loaded",
-        "ecg_model": "not_loaded",
+        "ecg_model": "loaded" if ecg_model is not None else "not_loaded",
     }
 
 
@@ -208,3 +225,196 @@ async def analyze_eeg_upload(file: UploadFile = File(...)):
             os.unlink(temp_path)
         await file.close()
 
+@app.post("/api/ecg/analyze")
+async def analyze_ecg_upload(file: UploadFile = File(...)):
+    """Analyze a raw ECG CSV/TXT recording using the trained SVM."""
+
+    if ecg_model is None:
+        raise HTTPException(status_code=503, detail="ECG model is unavailable.")
+
+    filename = (file.filename or "").lower()
+
+    if not filename.endswith((".csv", ".txt")):
+        raise HTTPException(
+            status_code=415,
+            detail="Supported formats: ECG .csv and .txt files.",
+        )
+
+    import io
+    import wfdb.processing as processing
+
+    try:
+        contents = await file.read()
+
+        if not contents:
+            raise HTTPException(status_code=422, detail="Uploaded file is empty.")
+
+        if len(contents) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File exceeds 20 MB limit.")
+
+        if filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_csv(
+                io.BytesIO(contents),
+                sep=None,
+                engine="python",
+                header=None,
+            )
+
+        if df.empty:
+            raise HTTPException(status_code=422, detail="No ECG samples found.")
+
+        # Select the ECG signal column.
+        signal_column = None
+
+        for column in df.columns:
+            if str(column).strip().lower() in ("mlii", "ecg", "lead_ii"):
+                signal_column = column
+                break
+
+        if signal_column is None:
+            numeric_columns = [
+                column for column in df.columns
+                if pd.api.types.is_numeric_dtype(df[column])
+                and str(column).strip().lower() not in ("time", "time_s", "timestamp")
+            ]
+
+            if not numeric_columns:
+                raise HTTPException(
+                    status_code=422,
+                    detail="No numeric ECG signal column found.",
+                )
+
+            signal_column = numeric_columns[0]
+
+        signal = pd.to_numeric(
+            df[signal_column], errors="coerce"
+        ).dropna().to_numpy(dtype=np.float32)
+
+        if len(signal) < 1000:
+            raise HTTPException(
+                status_code=422,
+                detail="ECG recording is too short for analysis.",
+            )
+
+        # Determine sampling frequency from the time column when available.
+        fs = 360.0
+
+        time_column = next(
+            (
+                column for column in df.columns
+                if str(column).strip().lower() in ("time_s", "time", "timestamp")
+            ),
+            None,
+        )
+
+        if time_column is not None:
+            timestamps = pd.to_numeric(
+                df[time_column], errors="coerce"
+            ).dropna().to_numpy()
+
+            if len(timestamps) > 1:
+                interval = np.median(np.diff(timestamps))
+                if interval > 0:
+                    fs = 1.0 / interval
+
+        if not 100 <= fs <= 1000:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unsupported sampling frequency: {fs:.2f} Hz.",
+            )
+
+        # Detect heartbeat locations.
+        peaks = processing.xqrs_detect(
+            sig=signal,
+            fs=fs,
+            verbose=False,
+        )
+
+        if len(peaks) == 0:
+            raise HTTPException(
+                status_code=422,
+                detail="No heartbeats detected in the uploaded recording.",
+            )
+
+        # Denoise and extract 250-sample heartbeat segments.
+        clean_signal = wavelet_denoise(signal)
+
+        beats = []
+
+        for peak in peaks:
+            start = int(peak) - 100
+            end = int(peak) + 150
+
+            if start >= 0 and end <= len(clean_signal):
+                beats.append(clean_signal[start:end])
+
+        if not beats:
+            raise HTTPException(
+                status_code=422,
+                detail="No valid heartbeat segments could be extracted.",
+            )
+
+        # Extract the same 34 features used during SVM training.
+        features = extract_features(np.asarray(beats, dtype=np.float32))
+
+        predictions = ecg_model.predict(features)
+
+        class_names = {
+            0: "Normal",
+            1: "Supraventricular ectopic beat",
+            2: "Ventricular ectopic beat",
+            3: "Fusion beat",
+        }
+
+        unique_classes, counts = np.unique(
+            predictions, return_counts=True
+        )
+
+        class_counts = {
+            class_names[int(cls)]: int(count)
+            for cls, count in zip(unique_classes, counts)
+        }
+
+        average_scores = {}
+
+        if hasattr(ecg_model, "predict_proba"):
+            probabilities = ecg_model.predict_proba(features)
+            average_scores = {
+                class_names[int(cls)]: round(float(score), 4)
+                for cls, score in zip(
+                    ecg_model.classes_,
+                    probabilities.mean(axis=0),
+                )
+            }
+
+        dominant_class = int(
+            unique_classes[np.argmax(counts)]
+        )
+
+        return {
+            "status": "success",
+            "model_name": "SVM",
+            "input_type": "raw_ecg_file",
+            "sampling_frequency_hz": round(float(fs), 2),
+            "detected_heartbeats": int(len(peaks)),
+            "analyzed_heartbeats": len(beats),
+            "predominant_heartbeat_class": class_names[dominant_class],
+            "heartbeat_class_counts": class_counts,
+            "average_model_scores": average_scores,
+            "clinical_notice": (
+                "Research demonstration only. These heartbeat classifications "
+                "are not a medical diagnosis or a substitute for professional assessment."
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"ECG analysis failed: {str(exc)}",
+        ) from exc
+    finally:
+        await file.close()

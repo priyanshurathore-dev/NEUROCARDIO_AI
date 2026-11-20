@@ -71,15 +71,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="data/processed")
     parser.add_argument("--records", nargs="+", default=DEFAULT_RECORDS)
+    parser.add_argument("--data-dir", default="data/mitdb")
     parser.add_argument("--channel", type=int, default=0)
     parser.add_argument("--wavelet", default="bior2.6", choices=["bior2.6", "db8", "sym8"])
     parser.add_argument("--compare-wavelets", action="store_true")
     args = parser.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    data_dir = Path(
-        r"E:\minor\data\mit-bih-arrhythmia-database-1.0.0\mit-bih-arrhythmia-database-1.0.0"
-    )
+    data_dir = Path(args.data_dir)
 
     all_beats, all_labels, all_records = [], [], []
     wavelet_comparison = {}

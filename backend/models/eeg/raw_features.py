@@ -20,20 +20,48 @@ BANDS = {
 
 
 def load_raw_bonn_file(path):
+    path = Path(path)
+
     try:
-        x = np.loadtxt(path, dtype=float, delimiter=None)
-    except ValueError:
-        x = np.loadtxt(path, dtype=float, delimiter=",")
+        if path.suffix.lower() == ".csv":
+            with path.open("r", encoding="utf-8-sig") as f:
+                first_line = f.readline().strip()
+
+            try:
+                [float(value.strip()) for value in first_line.split(",")]
+                skiprows = 0
+            except ValueError:
+                skiprows = 1
+
+            x = np.loadtxt(
+                path,
+                dtype=float,
+                delimiter=",",
+                skiprows=skiprows
+            )
+        else:
+            x = np.loadtxt(path, dtype=float)
+
+    except ValueError as exc:
+        raise ValueError(
+            "Unable to parse EEG file. Check its numeric values and format."
+        ) from exc
+
     x = np.asarray(x, dtype=float)
+
     if x.ndim == 2:
         if x.shape[1] == 1:
             x = x[:, 0]
         elif x.shape[1] == 2:
             x = x[:, 1]
         else:
-            raise ValueError("Only single-channel EEG or time+signal files are supported.")
+            raise ValueError(
+                "Only single-channel EEG or time+signal files are supported."
+            )
+
     if x.ndim != 1 or len(x) < 1000 or not np.isfinite(x).all():
         raise ValueError("EEG must contain at least 1000 finite samples.")
+
     return x
 
 

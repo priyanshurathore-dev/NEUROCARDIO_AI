@@ -102,7 +102,7 @@ function ECGAnalysis() {
         </p>
       </div>
 
-      <ResultsPanel result={result} />
+      <ResultsPanel result={result} modality="ecg" />
 
       <EducationalSection title="What is an ECG? (for patients and learners)">
         <p>
